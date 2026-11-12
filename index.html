@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>くさむしり検定 | むしって むしって 合格めざせ！</title>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden; font-family:"Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif;
+               background:linear-gradient(#aee3f5 0%, #d8f3dc 45%, #95d5b2 100%); touch-action:none; user-select:none; -webkit-user-select:none; }
+  #hud { position:fixed; top:0; left:0; right:0; z-index:5; padding:8px 12px 0; pointer-events:none; }
+  #hudRow { display:flex; justify-content:space-between; align-items:center; font-weight:bold; color:#1b4332; }
+  .hudBox { background:rgba(255,255,255,.85); border-radius:999px; padding:5px 14px; font-size:16px; box-shadow:0 2px 6px rgba(0,0,0,.15); }
+  #comboBox { color:#e76f51; min-width:86px; text-align:center; }
+  #timeBarWrap { height:12px; background:rgba(255,255,255,.7); border-radius:999px; margin-top:8px; overflow:hidden; box-shadow:inset 0 1px 3px rgba(0,0,0,.2); }
+  #timeBar { height:100%; width:100%; background:linear-gradient(90deg,#40916c,#74c69d); border-radius:999px; transition:width .2s linear; }
+  #timeBar.low { background:linear-gradient(90deg,#e76f51,#f4a261); }
+  #field { position:fixed; inset:0; z-index:2; overflow:hidden; }
+  .plant { position:absolute; transform-origin:50% 100%; cursor:pointer; line-height:1;
+           animation:grow .35s ease-out; filter:drop-shadow(0 3px 2px rgba(0,0,0,.18)); }
+  @keyframes grow { from { scale:.2; } to { scale:1; } }
+  .plant.pulled { animation:pop .28s ease-in forwards; pointer-events:none; }
+  @keyframes pop { 40% { translate:0 -26px; rotate:14deg; opacity:1; } 100% { translate:0 -64px; rotate:40deg; opacity:0; scale:.7; } }
+  .plant.miss { animation:shake .3s ease-in-out, pop .3s .25s ease-in forwards; pointer-events:none; }
+  @keyframes shake { 0%,100%{ rotate:0; } 25%{ rotate:-9deg; } 75%{ rotate:9deg; } }
+  .floatTxt { position:absolute; z-index:6; font-weight:bold; font-size:20px; color:#1b4332; pointer-events:none;
+              animation:floatUp .7s ease-out forwards; text-shadow:0 1px 0 #fff; }
+  .floatTxt.bad { color:#d90429; }
+  .floatTxt.gold { color:#e9a03b; font-size:24px; }
+  @keyframes floatUp { from { opacity:1; translate:0 0; } to { opacity:0; translate:0 -46px; } }
+  .overlay { position:fixed; inset:0; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center;
+             background:rgba(255,255,255,.82); text-align:center; padding:24px; box-sizing:border-box; }
+  .overlay.hidden { display:none; }
+  .title { font-size:38px; font-weight:bold; color:#1b4332; margin:6px 0; letter-spacing:.04em; }
+  .subtitle { font-size:15px; color:#2d6a4f; line-height:1.8; }
+  .bigEmoji { font-size:64px; }
+  button { border:none; border-radius:999px; padding:16px 38px; font-size:20px; font-weight:bold; cursor:pointer;
+           background:#40916c; color:#fff; box-shadow:0 4px 0 #2d6a4f; margin-top:22px; font-family:inherit; }
+  button:active { transform:translateY(3px); box-shadow:0 1px 0 #2d6a4f; }
+  #stamp { display:none; margin-top:14px; font-size:30px; font-weight:bold; color:#d90429; border:4px solid #d90429;
+           border-radius:12px; padding:6px 22px; transform:rotate(-8deg); letter-spacing:.1em; background:rgba(255,255,255,.7); }
+  #stamp.pass { display:inline-block; }
+  #stamp.fail { display:inline-block; color:#555; border-color:#555; }
+  #resultStats { font-size:17px; color:#1b4332; line-height:2; margin-top:10px; font-weight:bold; }
+  #resultComment { font-size:15px; color:#2d6a4f; margin-top:6px; }
+  #bestLine { font-size:13px; color:#888; margin-top:14px; }
+  .ruleNote { font-size:13px; color:#666; line-height:1.9; margin-top:16px; }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="hudRow">
+    <div class="hudBox">🌿 <span id="count">0</span> 本</div>
+    <div class="hudBox" id="comboBox">🔥 0 コンボ</div>
+    <div class="hudBox">⭐ <span id="score">0</span></div>
+  </div>
+  <div id="timeBarWrap"><div id="timeBar"></div></div>
+</div>
+
+<div id="field"></div>
+
+<div id="startScreen" class="overlay">
+  <div class="bigEmoji">🌱</div>
+  <div class="title">くさむしり検定</div>
+  <div class="subtitle">60秒間で どれだけ むしれるかな？<br>草をタップして むしりまくれ！</div>
+  <div class="ruleNote">
+    🌿🌱 草 = +10点（+1本）<br>
+    ✨ 金の草 = +50点（レア！）<br>
+    🌼 お花 = まちがい！ -30点＆-2秒<br>
+    お花を5回むしると 不合格になっちゃう…
+  </div>
+  <button id="startBtn">検定スタート！</button>
+  <div id="bestLine"></div>
+</div>
+
+<div id="resultScreen" class="overlay hidden">
+  <div class="bigEmoji" id="resultEmoji">🌿</div>
+  <div class="title" style="font-size:30px;">検定結果</div>
+  <div id="stamp"></div>
+  <div id="resultStats"></div>
+  <div id="resultComment"></div>
+  <button id="retryBtn">もう一度うける</button>
+  <div id="bestLine2" style="font-size:13px; color:#888; margin-top:14px;"></div>
+</div>
+
+<script>
+(() => {
+  const field = document.getElementById('field');
+  const countEl = document.getElementById('count');
+  const scoreEl = document.getElementById('score');
+  const comboEl = document.getElementById('comboBox');
+  const timeBar = document.getElementById('timeBar');
+  const startScreen = document.getElementById('startScreen');
+  const resultScreen = document.getElementById('resultScreen');
+
+  const GAME_TIME = 60;
+  const WEEDS = ['🌿','🌱','☘️','🍀'];
+  const FLOWERS = ['🌼','🌸','🌻','🌷'];
+
+  let playing = false, timeLeft = GAME_TIME, count = 0, score = 0,
+      combo = 0, maxCombo = 0, misses = 0, comboTimer = null,
+      spawnTimer = null, tickTimer = null, elapsed = 0;
+
+  let actx = null;
+  function beep(freq, dur, type) {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.12, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) {}
+  }
+
+  function showBest() {
+    const b = localStorage.getItem('kusamushiri_best');
+    const t = b ? '自己ベスト： ' + b + ' 本' : '';
+    document.getElementById('bestLine').textContent = t;
+    document.getElementById('bestLine2').textContent = t;
+  }
+  showBest();
+
+  function spawn() {
+    if (!playing) return;
+    const plants = field.querySelectorAll('.plant:not(.pulled):not(.miss)');
+    if (plants.length < 16) {
+      const el = document.createElement('div');
+      const roll = Math.random();
+      let kind = 'weed';
+      if (roll < 0.03) kind = 'gold';
+      else if (roll < 0.20) kind = 'flower';
+      el.className = 'plant';
+      el.dataset.kind = kind;
+      if (kind === 'gold') el.textContent = '🌿';
+      else if (kind === 'flower') el.textContent = FLOWERS[Math.floor(Math.random()*FLOWERS.length)];
+      else el.textContent = WEEDS[Math.floor(Math.random()*WEEDS.length)];
+      const size = 40 + Math.random()*34;
+      el.style.fontSize = size + 'px';
+      el.style.left = (4 + Math.random()*88) + 'vw';
+      el.style.top = (16 + Math.random()*76) + 'vh';
+      el.style.rotate = (Math.random()*24 - 12) + 'deg';
+      if (kind === 'gold') el.style.filter = 'drop-shadow(0 0 10px gold) saturate(2) hue-rotate(15deg)';
+      el.addEventListener('pointerdown', onPull);
+      field.appendChild(el);
+      if (kind === 'flower') {
+        // flowers quietly disappear if left alone
+        setTimeout(() => { if (el.parentNode && !el.classList.contains('miss')) el.remove(); }, 4200);
+      }
+    }
+    const interval = Math.max(240, 620 - elapsed * 9);
+    spawnTimer = setTimeout(spawn, interval * (0.6 + Math.random()*0.7));
+  }
+
+  function floatText(x, y, text, cls) {
+    const t = document.createElement('div');
+    t.className = 'floatTxt' + (cls ? ' ' + cls : '');
+    t.textContent = text;
+    t.style.left = x + 'px'; t.style.top = y + 'px';
+    field.appendChild(t);
+    setTimeout(() => t.remove(), 720);
+  }
+
+  function onPull(e) {
+    if (!playing) return;
+    const el = e.currentTarget;
+    const kind = el.dataset.kind;
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width/2, cy = r.top;
+    if (kind === 'flower') {
+      el.classList.add('miss');
+      misses++;
+      score = Math.max(0, score - 30);
+      timeLeft = Math.max(0, timeLeft - 2);
+      combo = 0;
+      floatText(cx - 24, cy, 'お花…！ -30', 'bad');
+      beep(160, 0.25, 'sawtooth');
+    } else {
+      el.classList.add('pulled');
+      count++;
+      combo++;
+      maxCombo = Math.max(maxCombo, combo);
+      clearTimeout(comboTimer);
+      comboTimer = setTimeout(() => { combo = 0; updateHud(); }, 1500);
+      if (kind === 'gold') {
+        score += 50;
+        floatText(cx - 20, cy, '✨ +50', 'gold');
+        beep(1180, 0.18, 'triangle');
+      } else {
+        score += 10;
+        floatText(cx - 12, cy, '+10', '');
+        beep(520 + Math.min(combo, 20) * 22, 0.09, 'sine');
+      }
+    }
+    setTimeout(() => el.remove(), 600);
+    updateHud();
+  }
+
+  function updateHud() {
+    countEl.textContent = count;
+    scoreEl.textContent = score;
+    comboEl.textContent = '🔥 ' + combo + ' コンボ';
+    timeBar.style.width = (timeLeft / GAME_TIME * 100) + '%';
+    timeBar.classList.toggle('low', timeLeft <= 10);
+  }
+
+  function grade() {
+    if (misses >= 5) return { g:'不合格', stamp:'ふごうかく', pass:false, emoji:'😢', comment:'お花を むしりすぎちゃった… お花は ともだち。' };
+    if (count >= 105) return { g:'1級 合格', stamp:'1きゅう', pass:true, emoji:'🏆', comment:'ワーーーッ！！ むしりの たつじん！ でんせつ級！' };
+    if (count >= 85)  return { g:'2級 合格', stamp:'2きゅう', pass:true, emoji:'🎉', comment:'すごいすごい！ むしりっぷりが プロ！' };
+    if (count >= 65)  return { g:'3級 合格', stamp:'3きゅう', pass:true, emoji:'😆', comment:'やったー！ なかなかの むしりっぷり！' };
+    if (count >= 45)  return { g:'4級 合格', stamp:'4きゅう', pass:true, emoji:'😊', comment:'ごうかく！ むしり、さまになってきたね' };
+    if (count >= 25)  return { g:'5級 合格', stamp:'5きゅう', pass:true, emoji:'🌸', comment:'ごうかくおめでとう！ 第一歩だね' };
+    return { g:'不合格', stamp:'ふごうかく', pass:false, emoji:'😢', comment:'むしりたりなかった… もっと ワーッと いこう' };
+  }
+
+  function finish() {
+    playing = false;
+    clearTimeout(spawnTimer);
+    clearInterval(tickTimer);
+    const res = grade();
+    document.getElementById('resultEmoji').textContent = res.emoji;
+    const stamp = document.getElementById('stamp');
+    stamp.textContent = res.stamp;
+    stamp.className = res.pass ? 'pass' : 'fail';
+    document.getElementById('resultStats').innerHTML =
+      '判定： ' + res.g + '<br>むしった草： ' + count + ' 本<br>スコア： ' + score + ' 点<br>最大コンボ： ' + maxCombo + ' ／ お花ミス： ' + misses + ' 回';
+    document.getElementById('resultComment').textContent = res.comment;
+    const prev = parseInt(localStorage.getItem('kusamushiri_best') || '0', 10);
+    if (count > prev) localStorage.setItem('kusamushiri_best', String(count));
+    showBest();
+    resultScreen.classList.remove('hidden');
+    beep(res.pass ? 880 : 220, 0.35, 'triangle');
+  }
+
+  function start() {
+    field.querySelectorAll('.plant,.floatTxt').forEach(n => n.remove());
+    count = 0; score = 0; combo = 0; maxCombo = 0; misses = 0;
+    timeLeft = GAME_TIME; elapsed = 0;
+    playing = true;
+    startScreen.classList.add('hidden');
+    resultScreen.classList.add('hidden');
+    updateHud();
+    for (let i = 0; i < 8; i++) setTimeout(spawn, i * 90);
+    spawn();
+    tickTimer = setInterval(() => {
+      timeLeft -= 0.1; elapsed += 0.1;
+      if (timeLeft <= 0) { timeLeft = 0; updateHud(); finish(); return; }
+      updateHud();
+    }, 100);
+  }
+
+  document.getElementById('startBtn').addEventListener('click', start);
+  document.getElementById('retryBtn').addEventListener('click', start);
+})();
+</script>
+</body>
+</html>
