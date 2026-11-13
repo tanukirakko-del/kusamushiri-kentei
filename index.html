@@ -9,7 +9,9 @@
 <style>
   * { -webkit-tap-highlight-color: transparent; }
   html, body { margin:0; padding:0; height:100%; overflow:hidden; font-family:"Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif;
-               background:linear-gradient(#aee3f5 0%, #d8f3dc 45%, #95d5b2 100%); touch-action:none; user-select:none; -webkit-user-select:none; }
+               background:linear-gradient(#aee3f5 0%, #d8f3dc 45%, #95d5b2 100%); touch-action:none; user-select:none; -webkit-user-select:none;
+               -webkit-text-size-adjust:100%; text-size-adjust:100%; overscroll-behavior:none; }
+  #field, .plant, button { touch-action:none; }
   #hud { position:fixed; top:0; left:0; right:0; z-index:5; padding:8px 12px 0; pointer-events:none; }
   #hudRow { display:flex; justify-content:space-between; align-items:center; font-weight:bold; color:#1b4332; }
   .hudBox { background:rgba(255,255,255,.85); border-radius:999px; padding:5px 14px; font-size:16px; box-shadow:0 2px 6px rgba(0,0,0,.15); }
@@ -435,6 +437,7 @@
   }
 
   function start() {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     field.querySelectorAll('.plant,.floatTxt').forEach(n => n.remove());
     count = 0; score = 0; combo = 0; maxCombo = 0; misses = 0; pits = 0; bees = 0; pullCount = 0;
     localStorage.setItem('kusamushiri_name', nameInput.value.trim());
@@ -451,6 +454,16 @@
       updateHud();
     }, 100);
   }
+
+  // iOS Safari: block pinch / double-tap zoom (this game is rapid-tap heavy)
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+  document.addEventListener('dblclick', (e) => e.preventDefault());
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 350) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive: false });
 
   document.getElementById('startBtn').addEventListener('click', start);
   document.getElementById('retryBtn').addEventListener('click', start);
